@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🤖💛 Aimee - Your Best Friend AI
 
 **Aimee** is a Best Friend AI SMS system that provides warm, caring conversations via text messages. She remembers personal details, checks in proactively, and responds exactly like a real human best friend would.
@@ -478,3 +479,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 **Built with ❤️ for genuine AI companionship** 
+=======
+# aimee-ai
+Aimee - AI Best Friend SMS System with Web Platform
+>>>>>>> 5095758862ac5bcb3b1ef88f775037d92cc1d16b
