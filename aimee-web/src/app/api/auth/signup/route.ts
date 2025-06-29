@@ -4,6 +4,37 @@ import twilio from 'twilio'
 
 export const dynamic = 'force-dynamic'
 
+// Simple rate limiting store (in production, use Redis)
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
+
+function rateLimit(ip: string, limit: number = 5, windowMs: number = 15 * 60 * 1000) {
+  const now = Date.now()
+  const key = ip
+  const record = rateLimitStore.get(key)
+  
+  if (!record || now > record.resetTime) {
+    rateLimitStore.set(key, { count: 1, resetTime: now + windowMs })
+    return true
+  }
+  
+  if (record.count >= limit) {
+    return false
+  }
+  
+  record.count++
+  return true
+}
+
+function validatePhone(phone: string): boolean {
+  const phoneRegex = /^\+?[1-9]\d{1,14}$/
+  return phoneRegex.test(phone.replace(/\s+/g, ''))
+}
+
+function validateEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -16,6 +47,14 @@ const twilioClient = twilio(
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    if (!rateLimit(ip)) {
+      return NextResponse.json({ 
+        error: 'Too many requests. Please try again later.' 
+      }, { status: 429 })
+    }
+
     console.log('Environment check:', {
       SUPABASE_URL: process.env.SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'NOT SET',
@@ -24,16 +63,23 @@ export async function POST(request: NextRequest) {
     
     const { name, phone, email, plan = 'free', step } = await request.json()
     
-    // Temporary bypass for testing - return success without database operations
-    if (step === 'verify-phone') {
-      console.log('Signup request:', { name, phone, email, plan, step });
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Verification code sent successfully (TEST MODE)',
-        nextStep: 'confirm-code'
-      });
+    // Input validation
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return NextResponse.json({ error: 'Valid name is required' }, { status: 400 })
     }
-
+    
+    if (!phone || !validatePhone(phone)) {
+      return NextResponse.json({ error: 'Valid phone number is required' }, { status: 400 })
+    }
+    
+    if (email && !validateEmail(email)) {
+      return NextResponse.json({ error: 'Valid email is required' }, { status: 400 })
+    }
+    
+    if (!['free', 'basic', 'premium'].includes(plan)) {
+      return NextResponse.json({ error: 'Invalid plan selected' }, { status: 400 })
+    }
+    
     if (step === 'verify-phone') {
       // Step 1: Send verification code
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
@@ -42,7 +88,7 @@ export async function POST(request: NextRequest) {
       // Check if user already exists
       let { data: existingUser, error: userError } = await supabase
         .from('users')
-        .select('id, phone_verified')
+        .select('id, phone_verified, name, email')
         .eq('phone', phone)
         .single()
 

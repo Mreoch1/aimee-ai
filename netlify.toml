@@ -1,10 +1,12 @@
 [build]
   command = "cd aimee-web && npm install && npm run build"
-  publish = "aimee-web/out"
+  publish = "aimee-web/.next"
 
 [build.environment]
   NODE_VERSION = "18"
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 
 
