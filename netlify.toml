@@ -1,5 +1,5 @@
 [build]
-  command = "cd aimee-web && npm install && npm run build"
+  command = "cd aimee-web && npm ci && npm run build"
   publish = "aimee-web/.next"
   functions = "netlify/functions"
 
