@@ -28,6 +28,7 @@
   - `STRIPE_PUBLISHABLE_KEY`: Frontend integration key configured
 - **Webhook Endpoint**: Created `https://roaring-kelpie-7c98f1.netlify.app/api/webhooks/stripe`
 - **Production Deployment**: Successfully deployed to `https://roaring-kelpie-7c98f1.netlify.app`
+- **Security Fix Applied**: Resolved SECURITY DEFINER view issue by replacing with SECURITY INVOKER function
 
 ## 🌐 Live URLs
 
