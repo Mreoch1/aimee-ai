@@ -1,6 +1,7 @@
 [build]
   command = "cd aimee-web && npm install && npm run build"
   publish = "aimee-web/.next"
+  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "18"
@@ -46,11 +47,7 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Handle client-side routing for static export
-[[redirects]]
-  from = "/*"
-  to = "/404.html"
-  status = 404
+# Next.js handles its own routing via the plugin
 
 [dev]
   functions = "netlify/functions"
