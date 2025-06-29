@@ -1,19 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, ArrowLeft, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 export default function SignupPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const searchParams = useSearchParams();
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    plan: 'premium'
+    plan: 'free'
   });
+
+  // Get plan from URL params
+  useEffect(() => {
+    const planFromUrl = searchParams.get('plan');
+    if (planFromUrl && ['free', 'basic', 'premium'].includes(planFromUrl)) {
+      setFormData(prev => ({ ...prev, plan: planFromUrl }));
+    }
+  }, [searchParams]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -23,20 +36,72 @@ export default function SignupPage() {
   };
 
   const handleNext = () => {
-    if (step < 3) {
-      setStep(step + 1);
+    setStep(step + 1);
+  };
+
+  const handleSendVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          step: 'verify-phone'
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send verification code');
+      }
+      
+      setStep(3); // Move to verification step
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setLoading(false);
-    setStep(4);
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          verificationCode,
+          step: 'confirm-code'
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to verify code');
+      }
+      
+      if (data.nextStep === 'payment') {
+        // Redirect to payment for paid plans
+        window.location.href = data.checkoutUrl;
+      } else {
+        // Registration complete for free plan
+        setStep(5);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -63,7 +128,7 @@ export default function SignupPage() {
       {/* Progress Bar */}
       <div className="max-w-md mx-auto px-6 mb-8">
         <div className="flex items-center space-x-2">
-          {[1, 2, 3].map((stepNum) => (
+          {[1, 2, 3, 4].map((stepNum) => (
             <div key={stepNum} className="flex items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                 step >= stepNum 
@@ -72,8 +137,8 @@ export default function SignupPage() {
               }`}>
                 {step > stepNum ? <Check className="h-4 w-4" /> : stepNum}
               </div>
-              {stepNum < 3 && (
-                <div className={`w-12 h-1 mx-2 ${
+              {stepNum < 4 && (
+                <div className={`w-8 h-1 mx-1 ${
                   step > stepNum ? 'bg-pink-500' : 'bg-gray-200'
                 }`} />
               )}
@@ -142,10 +207,82 @@ export default function SignupPage() {
 
           {step === 2 && (
             <div>
+              <h2 className="text-2xl font-bold text-center mb-2">Choose Your Plan</h2>
+              <p className="text-gray-600 text-center mb-6">Start your friendship with Aimee</p>
+              
+              <div className="space-y-4 mb-6">
+                <div className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  formData.plan === 'free' ? 'border-pink-500 bg-pink-50' : 'border-gray-200'
+                }`} onClick={() => setFormData(prev => ({ ...prev, plan: 'free' }))}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold">Free Plan</h3>
+                      <p className="text-sm text-gray-600">Try Aimee with 50 messages/month</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xl font-bold">Free</div>
+                      <div className="text-sm text-gray-600">50 msgs/month</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  formData.plan === 'basic' ? 'border-pink-500 bg-pink-50' : 'border-gray-200'
+                }`} onClick={() => setFormData(prev => ({ ...prev, plan: 'basic' }))}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold">Basic Plan</h3>
+                      <p className="text-sm text-gray-600">Unlimited conversations</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xl font-bold">$14.99</div>
+                      <div className="text-sm text-gray-600">/month</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className={`p-4 border-2 rounded-lg cursor-pointer transition-all relative ${
+                  formData.plan === 'premium' ? 'border-pink-500 bg-pink-50' : 'border-gray-200'
+                }`} onClick={() => setFormData(prev => ({ ...prev, plan: 'premium' }))}>
+                  <div className="absolute -top-2 left-4">
+                    <span className="bg-pink-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
+                      Most Popular
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold">Premium Plan</h3>
+                      <p className="text-sm text-gray-600">Advanced features & priority</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xl font-bold">$24.99</div>
+                      <div className="text-sm text-gray-600">/month</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <button
+                onClick={handleNext}
+                className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200"
+              >
+                Continue with {formData.plan === 'free' ? 'Free' : formData.plan === 'basic' ? 'Basic' : 'Premium'} Plan
+              </button>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div>
               <h2 className="text-2xl font-bold text-center mb-2">Your Phone Number</h2>
               <p className="text-gray-600 text-center mb-6">This is how we'll connect you with Aimee</p>
               
-              <form onSubmit={(e) => { e.preventDefault(); handleNext(); }}>
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
+              
+              <form onSubmit={handleSendVerification}>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Phone Number
@@ -166,72 +303,70 @@ export default function SignupPage() {
                 
                 <button
                   type="submit"
-                  className="w-full mt-6 bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200"
+                  disabled={loading}
+                  className="w-full mt-6 bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200 disabled:opacity-50 flex items-center justify-center"
                 >
-                  Send Verification Code
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Sending Code...
+                    </>
+                  ) : (
+                    'Send Verification Code'
+                  )}
                 </button>
               </form>
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div>
-              <h2 className="text-2xl font-bold text-center mb-2">Choose Your Plan</h2>
-              <p className="text-gray-600 text-center mb-6">Start your friendship with Aimee</p>
+              <h2 className="text-2xl font-bold text-center mb-2">Verify Your Phone</h2>
+              <p className="text-gray-600 text-center mb-6">
+                Enter the 6-digit code we sent to {formData.phone}
+              </p>
               
-              <div className="space-y-4 mb-6">
-                <div className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  formData.plan === 'basic' ? 'border-pink-500 bg-pink-50' : 'border-gray-200'
-                }`} onClick={() => setFormData(prev => ({ ...prev, plan: 'basic' }))}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold">Basic Plan</h3>
-                      <p className="text-sm text-gray-600">Perfect for getting started</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold">$14.99</div>
-                      <div className="text-sm text-gray-600">/month</div>
-                    </div>
-                  </div>
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
+              
+              <form onSubmit={handleVerifyCode}>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-center text-2xl tracking-widest"
+                    placeholder="123456"
+                    maxLength={6}
+                    required
+                  />
                 </div>
                 
-                <div className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  formData.plan === 'premium' ? 'border-pink-500 bg-pink-50' : 'border-gray-200'
-                }`} onClick={() => setFormData(prev => ({ ...prev, plan: 'premium' }))}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold">Premium Plan</h3>
-                      <p className="text-sm text-gray-600">Enhanced AI personality</p>
-                      <span className="inline-block bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs px-2 py-1 rounded-full mt-1">
-                        Most Popular
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold">$24.99</div>
-                      <div className="text-sm text-gray-600">/month</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200 flex items-center justify-center"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    Setting up your friendship...
-                  </>
-                ) : (
-                  'Start My Friendship with Aimee'
-                )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={loading || verificationCode.length !== 6}
+                  className="w-full mt-6 bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200 disabled:opacity-50 flex items-center justify-center"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify & Complete'
+                  )}
+                </button>
+              </form>
             </div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="h-8 w-8 text-green-500" />
@@ -251,10 +386,23 @@ export default function SignupPage() {
                 </p>
               </div>
               
-              <Link
-                href="/dashboard"
-                className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200 inline-block text-center"
-              >
+              <div className="space-y-3">
+                <Link
+                  href="/dashboard"
+                  className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200 inline-block text-center"
+                >
+                  Go to Dashboard
+                </Link>
+                
+                <p className="text-sm text-gray-500">
+                  Or text Aimee directly at{' '}
+                  <a href="sms:+18668124397" className="text-pink-600 font-semibold">
+                    (866) 812-4397
+                  </a>
+                </p>
+              </div>
+            </div>
+          )}
                 Go to Dashboard
               </Link>
             </div>

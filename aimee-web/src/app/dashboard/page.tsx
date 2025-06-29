@@ -32,66 +32,87 @@ interface Memory {
   date: string;
 }
 
+interface DashboardData {
+  user: {
+    name: string;
+    phone: string;
+    plan: string;
+    createdAt: string;
+  };
+  conversations: Conversation[];
+  memories: Memory[];
+  stats: {
+    totalMessages: number;
+    daysActive: number;
+    totalMemories: number;
+    friendshipLevel: string;
+  };
+}
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data - in real app this would come from API
+  // Load real data from API
   useEffect(() => {
-    setConversations([
-      {
-        id: 1,
-        date: '2024-01-15',
-        time: '2:30 PM',
-        preview: 'Had a great day at work today! Aimee helped me process my feelings about the presentation.',
-        sentiment: 'positive',
-        messageCount: 12
-      },
-      {
-        id: 2,
-        date: '2024-01-14',
-        time: '8:45 PM',
-        preview: 'Feeling anxious about tomorrow. Aimee provided great support and coping strategies.',
-        sentiment: 'neutral',
-        messageCount: 8
-      },
-      {
-        id: 3,
-        date: '2024-01-13',
-        time: '12:15 PM',
-        preview: 'Celebrated my promotion! Aimee was so excited for me and we planned a celebration.',
-        sentiment: 'positive',
-        messageCount: 15
-      }
-    ]);
+    const loadDashboardData = async () => {
+      try {
+        // For now, we'll use a demo phone number
+        // In a real app, this would come from authentication
+        const phone = '+18668124397'; // Demo phone number
+        
+        const response = await fetch(`/api/dashboard?phone=${encodeURIComponent(phone)}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to load dashboard data');
+        }
+        
+        const data: DashboardData = await response.json();
+        setDashboardData(data);
+        setConversations(data.conversations);
+        setMemories(data.memories);
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+        setError('Failed to load dashboard data');
+        
+        // Fallback to mock data if API fails
+        setConversations([
+          {
+            id: 1,
+            date: '2024-01-15',
+            time: '2:30 PM',
+            preview: 'Had a great day at work today! Aimee helped me process my feelings about the presentation.',
+            sentiment: 'positive',
+            messageCount: 12
+          },
+          {
+            id: 2,
+            date: '2024-01-14',
+            time: '8:45 PM',
+            preview: 'Feeling anxious about tomorrow. Aimee provided great support and coping strategies.',
+            sentiment: 'neutral',
+            messageCount: 8
+          }
+        ]);
 
-    setMemories([
-      {
-        id: 1,
-        category: 'Personal',
-        content: 'Loves coffee, especially lattes from the local café on Main Street',
-        date: '2024-01-10'
-      },
-      {
-        id: 2,
-        category: 'Work',
-        content: 'Works as a marketing manager, recently got promoted to senior position',
-        date: '2024-01-13'
-      },
-      {
-        id: 3,
-        category: 'Interests',
-        content: 'Enjoys hiking on weekends, favorite trail is the mountain loop near the city',
-        date: '2024-01-08'
-      },
-      {
-        id: 4,
-        category: 'Relationships',
-        content: 'Close with sister Sarah, calls her every Sunday evening',
-        date: '2024-01-12'
+        setMemories([
+          {
+            id: 1,
+            category: 'Personal',
+            content: 'Demo user - try texting Aimee at (866) 812-4397 to see real data!',
+            date: '2024-01-10'
+          }
+        ]);
+      } finally {
+        setLoading(false);
       }
-    ]);
+    };
+
+    loadDashboardData();
   }, []);
 
   const tabs = [
@@ -165,27 +186,54 @@ export default function DashboardPage() {
             {/* Quick Stats */}
             <div className="bg-white rounded-xl shadow-sm p-4 mt-6">
               <h3 className="font-semibold text-gray-800 mb-4">Quick Stats</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Total Messages</span>
-                  <span className="font-semibold text-pink-600">1,247</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Days Active</span>
-                  <span className="font-semibold text-pink-600">23</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Memories Stored</span>
-                  <span className="font-semibold text-pink-600">47</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Friendship Level</span>
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span className="font-semibold text-pink-600">Growing</span>
+              {loading ? (
+                <div className="space-y-4">
+                  <div className="animate-pulse flex justify-between">
+                    <div className="h-4 bg-gray-200 rounded w-20"></div>
+                    <div className="h-4 bg-gray-200 rounded w-10"></div>
+                  </div>
+                  <div className="animate-pulse flex justify-between">
+                    <div className="h-4 bg-gray-200 rounded w-20"></div>
+                    <div className="h-4 bg-gray-200 rounded w-10"></div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Total Messages</span>
+                    <span className="font-semibold text-pink-600">
+                      {dashboardData?.stats.totalMessages || 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Days Active</span>
+                    <span className="font-semibold text-pink-600">
+                      {dashboardData?.stats.daysActive || 1}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Memories Stored</span>
+                    <span className="font-semibold text-pink-600">
+                      {dashboardData?.stats.totalMemories || 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Friendship Level</span>
+                    <div className="flex items-center space-x-1">
+                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                      <span className="font-semibold text-pink-600">
+                        {dashboardData?.stats.friendshipLevel || 'Starting'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Plan</span>
+                    <span className="font-semibold text-pink-600 capitalize">
+                      {dashboardData?.user.plan || 'Free'}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

@@ -6,6 +6,21 @@ import { Heart, MessageCircle, Sparkles, Star, ArrowRight, Check } from 'lucide-
 import Link from 'next/link';
 
 const PRICING_PLANS = {
+  free: {
+    name: 'Free',
+    price: 0,
+    description: 'Try Aimee with basic conversations',
+    features: [
+      '50 messages per month',
+      'Basic personality responses',
+      'Limited conversation memory',
+      'Available 24/7',
+      'Community support'
+    ],
+    priceId: null,
+    popular: false,
+    buttonText: 'Start Free'
+  },
   basic: {
     name: 'Basic',
     price: 14.99,
@@ -18,7 +33,8 @@ const PRICING_PLANS = {
       'Emotional support & companionship'
     ],
     priceId: 'price_basic', // Replace with actual Stripe price ID
-    popular: false
+    popular: false,
+    buttonText: 'Choose Basic'
   },
   premium: {
     name: 'Premium',
@@ -33,7 +49,8 @@ const PRICING_PLANS = {
       'Exclusive personality updates'
     ],
     priceId: 'price_premium', // Replace with actual Stripe price ID
-    popular: true
+    popular: true,
+    buttonText: 'Choose Premium'
   }
 };
 
@@ -59,16 +76,26 @@ export default function LandingPage() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="hidden md:flex items-center space-x-8"
+            className="flex items-center space-x-6"
           >
-            <Link href="#features" className="text-gray-600 hover:text-pink-500 transition-colors">
-              Features
-            </Link>
-            <Link href="#pricing" className="text-gray-600 hover:text-pink-500 transition-colors">
-              Pricing
-            </Link>
-            <Link href="#testimonials" className="text-gray-600 hover:text-pink-500 transition-colors">
-              Stories
+            <div className="hidden md:flex items-center space-x-6">
+              <Link href="#features" className="text-gray-600 hover:text-pink-500 transition-colors">
+                Features
+              </Link>
+              <Link href="#pricing" className="text-gray-600 hover:text-pink-500 transition-colors">
+                Pricing
+              </Link>
+              <Link href="#testimonials" className="text-gray-600 hover:text-pink-500 transition-colors">
+                Stories
+              </Link>
+            </div>
+            
+            <Link
+              href="/signup"
+              className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2.5 rounded-full font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center space-x-2"
+            >
+              <span>Get Started</span>
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </motion.div>
         </nav>
@@ -206,16 +233,16 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {Object.entries(PRICING_PLANS).map(([key, plan]) => (
               <motion.div
                 key={key}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className={`relative p-8 rounded-2xl border-2 ${
+                className={`relative p-6 rounded-2xl border-2 ${
                   plan.popular
-                    ? 'border-pink-500 bg-white shadow-xl'
+                    ? 'border-pink-500 bg-white shadow-xl scale-105'
                     : 'border-gray-200 bg-white'
                 }`}
               >
@@ -230,8 +257,14 @@ export default function LandingPage() {
                 <div className="text-center mb-6">
                   <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
                   <div className="mb-4">
-                    <span className="text-4xl font-bold">${plan.price}</span>
-                    <span className="text-gray-600">/month</span>
+                    {plan.price === 0 ? (
+                      <span className="text-4xl font-bold">Free</span>
+                    ) : (
+                      <>
+                        <span className="text-4xl font-bold">${plan.price}</span>
+                        <span className="text-gray-600">/month</span>
+                      </>
+                    )}
                   </div>
                   <p className="text-gray-600">{plan.description}</p>
                 </div>
@@ -250,10 +283,12 @@ export default function LandingPage() {
                   className={`w-full py-3 rounded-full font-semibold transition-all duration-200 flex items-center justify-center space-x-2 ${
                     plan.popular
                       ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:shadow-lg transform hover:scale-105'
+                      : key === 'free'
+                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       : 'border-2 border-pink-500 text-pink-500 hover:bg-pink-500 hover:text-white'
                   }`}
                 >
-                  <span>Choose {plan.name}</span>
+                  <span>{plan.buttonText}</span>
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </motion.div>

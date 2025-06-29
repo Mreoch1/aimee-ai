@@ -1,110 +1,170 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { generateVerificationCode, formatPhone } from '@/lib/utils'
-import { createCustomer } from '@/lib/stripe'
+import { createClient } from '@supabase/supabase-js'
+import twilio from 'twilio'
 
-const twilio = require('twilio')(
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 )
 
 export async function POST(request: NextRequest) {
   try {
-    const { fullName, email, phone, plan } = await request.json()
+    const { name, phone, email, plan = 'free', step } = await request.json()
 
-    // Validate required fields
-    if (!fullName || !email || !phone || !plan) {
-      return NextResponse.json(
-        { message: 'All fields are required' },
-        { status: 400 }
-      )
+    if (step === 'verify-phone') {
+      // Step 1: Send verification code
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+
+      // Check if user already exists
+      let { data: existingUser, error: userError } = await supabase
+        .from('users')
+        .select('id, phone_verified')
+        .eq('phone', phone)
+        .single()
+
+      if (userError && userError.code !== 'PGRST116') {
+        throw userError
+      }
+
+      if (existingUser) {
+        // Update existing user with verification code
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({
+            verification_code: verificationCode,
+            verification_expires_at: expiresAt.toISOString(),
+            name: name || existingUser.name,
+            email: email || existingUser.email
+          })
+          .eq('id', existingUser.id)
+
+        if (updateError) throw updateError
+      } else {
+        // Create new user
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            name,
+            phone,
+            email,
+            subscription_tier: plan,
+            phone_verified: false,
+            verification_code: verificationCode,
+            verification_expires_at: expiresAt.toISOString()
+          })
+
+        if (insertError) throw insertError
+      }
+
+      // Send verification code via SMS
+      try {
+        await twilioClient.messages.create({
+          body: `Your Aimee verification code is: ${verificationCode}. This code expires in 10 minutes.`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: phone
+        })
+
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Verification code sent successfully',
+          nextStep: 'confirm-code'
+        })
+      } catch (twilioError) {
+        console.error('Error sending SMS:', twilioError)
+        return NextResponse.json({ 
+          error: 'Failed to send verification code. Please try again.' 
+        }, { status: 500 })
+      }
     }
 
-    const formattedPhone = formatPhone(phone)
+    if (step === 'confirm-code') {
+      // Step 2: Verify code and complete registration
+      const { verificationCode } = await request.json()
 
-    // Check if user already exists
-    const { data: existingUser } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .or(`email.eq.${email},phone.eq.${formattedPhone}`)
-      .single()
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone', phone)
+        .single()
 
-    if (existingUser) {
-      return NextResponse.json(
-        { message: 'User with this email or phone already exists' },
-        { status: 409 }
-      )
-    }
+      if (userError || !user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
 
-    // Generate verification code
-    const verificationCode = generateVerificationCode()
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+      // Check if code is valid and not expired
+      const now = new Date()
+      const expiresAt = new Date(user.verification_expires_at)
 
-    // Store verification code
-    const { error: verificationError } = await supabaseAdmin
-      .from('phone_verifications')
-      .insert({
-        phone: formattedPhone,
-        code: verificationCode,
-        expires_at: expiresAt.toISOString()
+      if (!user.verification_code || user.verification_code !== verificationCode) {
+        return NextResponse.json({ error: 'Invalid verification code' }, { status: 400 })
+      }
+
+      if (now > expiresAt) {
+        return NextResponse.json({ error: 'Verification code has expired' }, { status: 400 })
+      }
+
+      // Update user as verified
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          phone_verified: true,
+          verification_code: null,
+          verification_expires_at: null,
+          subscription_tier: plan
+        })
+        .eq('id', user.id)
+
+      if (updateError) throw updateError
+
+      // For paid plans, you would integrate with Stripe here
+      if (plan !== 'free') {
+        // TODO: Create Stripe checkout session
+        return NextResponse.json({
+          success: true,
+          message: 'Phone verified successfully',
+          nextStep: 'payment',
+          checkoutUrl: `/checkout?plan=${plan}&userId=${user.id}`
+        })
+      }
+
+      // For free plan, registration is complete
+      // Send welcome message
+      try {
+        await twilioClient.messages.create({
+          body: `Welcome to Aimee! 💛 I'm so excited to be your AI best friend. I'm here 24/7 to chat, remember what matters to you, and be the friend you've always wanted. You get 50 free messages this month - let's make them count! What's on your mind today?`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: phone
+        })
+      } catch (twilioError) {
+        console.error('Error sending welcome SMS:', twilioError)
+        // Don't fail the registration if welcome message fails
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Registration completed successfully!',
+        user: {
+          id: user.id,
+          name: user.name,
+          phone: user.phone,
+          plan: plan
+        },
+        nextStep: 'complete'
       })
-
-    if (verificationError) {
-      console.error('Verification storage error:', verificationError)
-      return NextResponse.json(
-        { message: 'Failed to store verification code' },
-        { status: 500 }
-      )
     }
 
-    // Create Stripe customer
-    const customer = await createCustomer(email, fullName)
-
-    // Create user record (unverified)
-    const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-    
-    const { error: userError } = await supabaseAdmin
-      .from('users')
-      .insert({
-        email,
-        phone: formattedPhone,
-        full_name: fullName,
-        subscription_status: 'trial',
-        trial_ends_at: trialEndsAt.toISOString(),
-        stripe_customer_id: customer.id,
-        selected_plan: plan
-      })
-
-    if (userError) {
-      console.error('User creation error:', userError)
-      return NextResponse.json(
-        { message: 'Failed to create user account' },
-        { status: 500 }
-      )
-    }
-
-    // Send verification SMS
-    try {
-      await twilio.messages.create({
-        body: `Your Aimee verification code is: ${verificationCode}. This code expires in 10 minutes.`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: formattedPhone
-      })
-    } catch (twilioError) {
-      console.error('SMS sending error:', twilioError)
-      // Don't fail the signup if SMS fails - user can request resend
-    }
-
-    return NextResponse.json({
-      message: 'Account created successfully. Verification code sent.',
-      phone: formattedPhone
-    })
+    return NextResponse.json({ error: 'Invalid step' }, { status: 400 })
 
   } catch (error) {
     console.error('Signup error:', error)
-    return NextResponse.json(
-      { message: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ 
+      error: 'Internal server error' 
+    }, { status: 500 })
   }
 } 
