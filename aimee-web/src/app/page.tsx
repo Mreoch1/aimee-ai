@@ -375,7 +375,7 @@ export default function LandingPage() {
           </div>
           
           <div className="mt-8 pt-8 border-t border-gray-800 text-center text-sm text-gray-400">
-            <p>&copy; 2024 Aimee AI. Made with ❤️ for meaningful connections.</p>
+            <p>&copy; 2025 Aimee AI. Made with ❤️ for meaningful connections.</p>
           </div>
         </div>
       </footer>
