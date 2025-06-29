@@ -115,6 +115,58 @@ export default function DashboardPage() {
     loadDashboardData();
   }, []);
 
+  const handleManageBilling = async () => {
+    try {
+      const response = await fetch('/api/billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_portal_session',
+          userPhone: dashboardData?.user.phone
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        window.location.href = data.url;
+      } else {
+        alert('Failed to open billing portal: ' + data.error);
+      }
+    } catch (error) {
+      alert('Failed to open billing portal');
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!confirm('Are you sure you want to cancel your subscription? You will still have access until the end of your billing period.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'cancel_subscription',
+          userPhone: dashboardData?.user.phone
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert(data.message);
+        // Refresh data
+        window.location.reload();
+      } else {
+        alert('Failed to cancel subscription: ' + data.error);
+      }
+    } catch (error) {
+      alert('Failed to cancel subscription');
+    }
+  };
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: TrendingUp },
     { id: 'conversations', label: 'Conversations', icon: MessageCircle },
@@ -456,10 +508,16 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex space-x-3 mt-4">
-                      <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-                        Change Plan
+                      <button 
+                        onClick={handleManageBilling}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Manage Billing
                       </button>
-                      <button className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <button 
+                        onClick={handleCancelSubscription}
+                        className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
                         Cancel Subscription
                       </button>
                     </div>

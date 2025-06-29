@@ -60,7 +60,7 @@ export default function SignupPage() {
         throw new Error(data.error || 'Failed to send verification code');
       }
       
-      setStep(3); // Move to verification step
+      setStep(4); // Move to verification step
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -121,7 +121,7 @@ export default function SignupPage() {
             </span>
           </div>
           
-          <div className="w-16"></div> {/* Spacer for centering */}
+          <div className="w-16"></div>
         </nav>
       </header>
 
@@ -401,10 +401,6 @@ export default function SignupPage() {
                   </a>
                 </p>
               </div>
-            </div>
-          )}
-                Go to Dashboard
-              </Link>
             </div>
           )}
         </motion.div>
