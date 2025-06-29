@@ -4,21 +4,11 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
 
-# Redirect API routes
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/___netlify-handler"
-  status = 200
 
-# Client-side routing fallback
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+
 
 # Security headers
 [[headers]]
@@ -29,19 +19,19 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# CORS headers for API routes
-[[headers]]
-  for = "/api/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, stripe-signature"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+
 
 # Fix CSS MIME types
 [[headers]]
   for = "/_next/static/css/*"
   [headers.values]
     Content-Type = "text/css"
+
+# Fix JS MIME types
+[[headers]]
+  for = "/_next/static/chunks/*"
+  [headers.values]
+    Content-Type = "application/javascript"
 
 # Cache static assets
 [[headers]]
@@ -53,6 +43,12 @@
   for = "/_next/image*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# Handle client-side routing for static export
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404
 
 [dev]
   functions = "netlify/functions"
