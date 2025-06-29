@@ -28,6 +28,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.50.2",
     "twilio": "^5.3.5",
+    "openai": "^4.73.1",
     "dotenv": "^16.4.7"
   },
   "devDependencies": {
