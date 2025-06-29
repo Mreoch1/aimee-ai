@@ -1,10 +1,9 @@
 [build]
-  command = "cd aimee-web && rm -rf node_modules package-lock.json && npm cache clean --force && npm install && npm run build"
-  publish = "aimee-web/.next"
+  command = "cd aimee-web && npm install && npm run build"
+  publish = "aimee-web/out"
 
 [build.environment]
   NODE_VERSION = "18"
-  NEXT_PRIVATE_TARGET = "server"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -37,6 +36,12 @@
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Headers = "Content-Type, Authorization, stripe-signature"
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+
+# Fix CSS MIME types
+[[headers]]
+  for = "/_next/static/css/*"
+  [headers.values]
+    Content-Type = "text/css"
 
 # Cache static assets
 [[headers]]
